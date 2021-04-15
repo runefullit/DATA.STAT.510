@@ -24,7 +24,7 @@ knitr::opts_knit$set(root.dir = "C:/Users/Kwty/Documents/1.Yliopisto/Mathematics
 
 ## Aineistosta
 
-Tässä harjoitustyössä käsitellään vanhoja kurssi aineistoja Tampereella myyydyistä asunnoista vuotena 2012 ja siitä analysoidaan seuraavia muuttjia: kaupunginosa, neliöt, velaton hinta, rakennusvuosi, huonemäärä ja hissi. Postinumero muuttujaa ei analysoida, sillä se toimii kategorisena muuttujana hyvin samalla tavalla kuin kaupunginosa, joten vain yhtä näistä on mielekästä tutkia. Lisäksi kunto muuttujaa ei arvioida, sillä valta-osa aineiston toteutuneista asuntokaupoista on kenties syystäkin ollut hyväkuntoisia asuntoja, joten huono ja tyydyttäväkuntoisten asuntojen osuus jää hyvin pieneksi.
+Tässä harjoitustyössä käsitellään vanhoja kurssi aineistoja Tampereella myyydyistä asunnoista vuotena 2012 ja siitä analysoidaan seuraavia muuttujia: kaupunginosa, neliöt, velaton hinta, rakennusvuosi, huonemäärä ja hissi. Postinumero muuttujaa ei analysoida, sillä se toimii kategorisena muuttujana hyvin samalla tavalla kuin kaupunginosa, joten vain yhtä näistä on mielekästä tutkia. Lisäksi kunto muuttujaa ei arvioida, sillä valta-osa aineiston toteutuneista asuntokaupoista on kenties syystäkin ollut hyväkuntoisia asuntoja, joten huono ja tyydyttäväkuntoisten asuntojen osuus jää hyvin pieneksi.
 
 Aineisto on valittu analyysin kohteeksi, sillä se on kaltaisistaan kattavin, sisältää lähes 400 asuntokauppaa, ja tarjoaa hyvän pohjan asunnon arvon tarkastelulle tarjoamiensa muuttujien kesken. Tulostetaan tiivistelmä aineistosta.
 
