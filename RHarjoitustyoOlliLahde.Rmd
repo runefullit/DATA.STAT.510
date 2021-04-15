@@ -1,0 +1,229 @@
+---
+title: "R Harjoitustyö"
+author: "Olli Lähde"
+date: "4/14/2021"
+output:
+  pdf_document: default
+  html_document: default
+fontsize: 12pt
+
+references:
+- id: Aineisto
+  title: Tampereella myydyt asunnot 2010
+  URL: 'https://webpages.tuni.fi/uta_statistics/tiltp_aineistoja/Tre_myydyt_asunnot_2010.xls'
+  author: Tilastotieteiden peruskurssien harjoitusaineistoja 2003-2018
+- id: DokRmd
+  title: Dokumentin R markdown tiedosto.
+  URL: 'https://github.com/runefullit/DATA.STAT.510'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "C:/Users/Kwty/Documents/1.Yliopisto/Mathematics/Stats/R") # Asetetaan käyttökansio
+```
+
+## Aineistosta
+
+Tässä harjoitustyössä käsitellään vanhoja kurssi aineistoja Tampereella myyydyistä asunnoista vuotena 2012 ja siitä analysoidaan seuraavia muuttjia: kaupunginosa, neliöt, velaton hinta, rakennusvuosi, huonemäärä ja hissi. Postinumero muuttujaa ei analysoida, sillä se toimii kategorisena muuttujana hyvin samalla tavalla kuin kaupunginosa, joten vain yhtä näistä on mielekästä tutkia. Lisäksi kunto muuttujaa ei arvioida, sillä valta-osa aineiston toteutuneista asuntokaupoista on kenties syystäkin ollut hyväkuntoisia asuntoja, joten huono ja tyydyttäväkuntoisten asuntojen osuus jää hyvin pieneksi.
+
+Aineisto on valittu analyysin kohteeksi, sillä se on kaltaisistaan kattavin, sisältää lähes 400 asuntokauppaa, ja tarjoaa hyvän pohjan asunnon arvon tarkastelulle tarjoamiensa muuttujien kesken. Tulostetaan tiivistelmä aineistosta.
+
+```{r asunnot_2010, echo=FALSE, warning=FALSE}
+asunnot_2010 = read.csv("Tre_myydyt_asunnot_2010.csv", sep=";")
+
+asunnot_2010 = transform(asunnot_2010, neliöt=as.numeric(neliöt),
+                         velatonhinta=as.numeric(sub(' ', '', velatonhinta)),
+                         rakvuosi=as.numeric(sub(' ', '', rakvuosi)),
+                         kunto=as.numeric(kunto))
+fKunto = factor(asunnot_2010$kunto, labels=c("Huono", "Hyvä", "Tyydyttävä"))
+asunnot_2010$kunto = fKunto
+
+fHissi = factor(asunnot_2010$hissi, labels=c("on", "ei"))
+asunnot_2010$hissi = fHissi
+
+#asunnot_2010$huoneet = factor(asunnot_2010$huoneet)
+asunnot_2010$kaupunginosa = factor(asunnot_2010$kaupunginosa)
+asunnot_2010$postinumero = factor(asunnot_2010$postinumero)
+```
+
+### 2010 asuntokaupat
+
+```{r summary 2010, echo=FALSE}
+summary(asunnot_2010)
+```
+
+Aineistoista voidaan tarkastella korrelaatioita numeeristen muuttujien kesken.
+
+#### 2010 toteutuneiden asuntokauppojen korrelaatiomatriisi
+```{r Korrelaatio 2010, echo=FALSE}
+cor(asunnot_2010[2:5])
+```
+
+Matriisista huomataan, että asunnon hinnan merkittävin tekijä on sen koko. Huoneiden lukumäärä vaikuttaa myös merkittävältä, mutta korreloi luonnollisesti asunnon pinta-alan kanssa. Rakennusvuoden vaikutus vaikuttaa yllättävän pieneltä matriisissa, joten tarkastellaan tätä lähemmin.
+
+\newpage
+## Asunnon ikä
+
+Intuitiivisesti ymmärretään, että asunnon ikä yleisesti ottaen laskee asunnon arvoa. Lopulta tietenkin päästään pisteeseen, jossa asunto alkaa ikänsä puolesta keräämään historiallista arvoa. Sellaiset asunnot ovat kuitenkin pienessä vaihdannassa, joten niiden osuus tästä aineistosta on pieni, ja tästä osuudesta tehdyt havainnot eivät välttämättä heijasta näiden asuntojen todellista arvoa.
+
+```{r asunnon ikä, echo=FALSE}
+options(scipen=8)
+asunnonika = 2010-asunnot_2010$rakvuosi
+plot(asunnonika, asunnot_2010$velatonhinta, ylab="Hinta",
+     xlab="Asunnon ikä",main="Hinta vs. Asunnon ikä",
+     pch=20, col=rgb(0.4, 0.4, 0.8, 0.6), sub="Kuvaajassa sovitettu 4. asteen polynomi.",
+     font.sub=3)
+
+fit = lm(asunnot_2010$velatonhinta ~ poly(asunnonika, 4, raw=TRUE))
+mypredict = predict(fit)
+ix = sort(asunnonika, index.return=T)$ix
+lines(asunnonika[ix], mypredict[ix], lwd=2, col="red")
+
+legend("topright", legend=c("Asunnot", "Regressio"), col=c(rgb(0.4, 0.4, 0.8, 0.6), "red"),
+       pch=c(20, NA), lty=c(NA, 1))
+```
+
+Ensimmäisen viidenkymmenen vuoden aikana trendi on siis selvästi laskeva, tämän jälkeen regressio osoittaa asuntojen arvon keskimäärin kasvavan. Huomataan myös, että agressiivisin hinnan putoaminen tapahtuu ensimmäisten vuosikymmenten aikana. Tämän jälkeen asunnot säilyttävät arvonsa hyvin. Todettakoon, siis että vanha asunto on vanha oli se sitten rakennettu 70- tai 50-luvulla.
+
+\newpage
+## Asunnon pinta-ala
+
+Tarkastellaan edellä esitettyä tilastoa, mutta huomioiden asuntojen pinta-alat.
+
+```{r asunnon ikä neliot, echo=FALSE}
+options(scipen=8)
+vari = paste("#", as.hexmode(round(asunnot_2010$neliöt/max(asunnot_2010$neliöt)*255)), # Red
+                  "00", # Green
+                  "00", # Blue
+                  "B0",
+                  sep = '')
+plot(asunnonika, asunnot_2010$velatonhinta, ylab="Hinta",
+     xlab="Asunnon ikä",main="Hinta vs. Asunnon ikä",
+     pch=20, col=vari, cex=2, sub="Tummat pisteet ovat pieniä asuntoja ja kirkkaat suuria.",
+     font.sub=3)
+
+                       
+            
+```
+
+Tästä huomataan pääsääntöinen trendi, jonka mukaisesti asunnon hinta kasvaa pinta-alan mukana.
+
+\newpage
+## Asunnon sijainti
+
+Asuntokauppa oli vuonna 2010 vilkkainta Hervannassa, mutta huomattava määrä asuntoja vaihtoi omistajaa myös Kalevassa, Keskustassa, Armonkalliolla ja Härmälässä.
+
+```{r Asuinalueiden myynti, echo=FALSE}
+x = barplot(table(asunnot_2010$kaupunginosa),xaxt="n", main="Myytyjen asuntojen lkm. asuinalueittain 2010")
+labs = paste(names(table(asunnot_2010$kaupunginosa)))
+text(cex=0.8, x=x-1, y=-15, labs, xpd=T, srt=45)
+```
+
+2010 Hervanta oli siis ylivoimaisesti vilkkain alue Tampereella asuntokaupan suhteen.
+
+Asuinalueet on tosin myös rakennettu eri aikakausina, ja osa niistä rakennettiin hyvinkin nopeasti muotoon jossa ne olivat vuonna 2010, kun taas toiset ovat laajentuneet vuosikymmenten saatossa, ja uusia asuntojan on rakennettu vanhojen rinnalle. Alla näemme viiden asuntokaupaltaan vilkkaimman alueen asuntojen keskimääräiset iät.
+
+```{r Asuinalueiden iät, echo=FALSE}
+iat = c()
+alueet = c("Hervanta", "Kaleva", "Keskusta", "Armonkallio", "Härmälä")
+
+for (alue in alueet){
+  iat = c(iat, mean(subset(asunnot_2010, asunnot_2010$kaupunginosa == alue)$rakvuosi))
+}
+iat = 2010-iat
+barplot(iat, main="Asuntojen keskimääräiset iät asuinalueittain", horiz=FALSE,
+        names.arg=alueet, ylab="ikä vuosina")
+```
+
+Tilastosta on huomioitava, että kauppatiedot ovat vuodelta 2010, eli ennen Kalevan osittaista uudelleenkaavoittamista ja rakentamista. 
+
+
+Hervannan ja Härmälän asuntokauppa siis edustaa keskimäärin uudempia asuntoja kuin Kalevasta, Keskustasta ja Armonkalliolta löytyvät asunnot.
+
+Kuten aiemmin todettiin, jotkin asuinalueet on rakennettu hyvinkin nopeasti, kun taas toiset ovat kasvaneet vuosikymmenten saatossa, ja niitä on kehitetty säännöllisesti eteenpäin. Tutkitaan tätä hieman tarkemmin aiemmin tarkasteltujen viiden asuinalueen kesken tutkimalla rakennusvuosien jakaumia näillä alueilla.
+
+```{r subsetit, echo=FALSE}
+col = c("darkblue", "red", "darkorange", "violet", "purple")
+plot(density(subset(asunnot_2010, asunnot_2010$kaupunginosa=="Hervanta")$rakvuosi),
+     xlim=c(1910, 2010), ylim=c(0, 0.15), col=col[1], lwd=2, yaxt="n",
+     main="Rakennusvuosien jakaumat", ylab='', xlab='')
+count = 2
+for (alue in alueet[2:5]){
+  lines(density(subset(asunnot_2010, asunnot_2010$kaupunginosa==alue)$rakvuosi),
+        col=col[count], lwd = 2)
+  count = count+1
+}
+legend('topright', legend=alueet, col=col, lty=1, lwd=2)
+
+kalevanasunnot=subset(asunnot_2010, asunnot_2010$kaupunginosa=="Kaleva")
+```
+
+Jakaumista huomataan, että Kalevassa ja Hervannassa oli merkittävä rakennusliike omina aikakausinaan. Valtaosa Kalevassa myydyistä asunnoista on rakennettu 50-luvun lopulla ja 60 luvun alussa. Tarkalleen sanoen joka ikinen 2010 myyty Kalevan asunto on rakennettu vuosien `r min(kalevanasunnot$rakvuosi)` ja `r max(kalevanasunnot$rakvuosi)` välillä.
+
+Hervannassa puolestaan vanhin aineiston asunto on vasta vuodelta `r min(subset(asunnot_2010, asunnot_2010$kaupunginosa=="Hervanta")$rakvuosi)` ja rakentaminen on jatkunut säännöllisesti aina nykypäivään.
+
+Verrattaen Keskustassa, Armonkalliolla, ja Härmälässä asuntoja on löytynyt paljon laajemmilta aikakausilta.
+
+\newpage
+## Huonemäärä
+
+Huonemäärä on tiivisti kytköksissä asunnon pinta-alaan, mutta ne eivät kuitenkaa ole täysin yksiselitteisiä. Suuri yksiö voi olla kuitenkin suurempi kuin pieni kaksio. Joka tapauksessa pinta-alasta riippumatta korrelaatiomatriisista huomattin, että huonemäärällä on merkittävä merkitys hinnan määräytymisessä. Verrataan tarkemmin eri huonemäärillä asuntojen hinta - pinta-ala suhdetta.
+
+```{r pinta-ala huonemäärittäin, echo=FALSE}
+huonemaarat = min(asunnot_2010$huoneet):max(asunnot_2010$huoneet)
+varit = c('blue', 'red', 'orange', 'green')
+
+piirtokohde = subset(asunnot_2010, asunnot_2010$huoneet==1)
+plot(piirtokohde$neliöt, piirtokohde$velatonhinta, col=varit[1],
+     xlim=c(15, 100), ylim=c(40000, 250000),
+     main="Hinta pinta-alan suhteen huonemäärittäin",
+     ylab="Hinta", xlab=expression("Pinta-ala m"^2))
+count = 2
+for (maara in huonemaarat[2:4]){
+  piirtokohde = subset(asunnot_2010,asunnot_2010$huoneet==maara)
+  points(piirtokohde$neliöt, piirtokohde$velatonhinta, col=varit[count])
+  count = count + 1
+}
+legend("topleft", legend=huonemaarat, col=varit, pch=1)
+table(asunnot_2010$huoneet)
+```
+
+Huomataan että pinta-aloissa ja huonemäärissä on huomattavaa päällekkäisyyttä. Voidaan siis tarkastella asuntojen hintaa per neliömetri asuntotyypeittäin ja 
+
+```{r hinta/neliö per neliö, echo=FALSE}
+hintapernelio = asunnot_2010$velatonhinta/asunnot_2010$neliöt
+plot(asunnot_2010$neliöt, hintapernelio, pch=20, col=rgb(0.4,0.4,0.8,0.6),
+     main="Hinta per neliö", ylab = expression("Hinta" / "Neliö"), xlab="Neliöt")
+abline(lm(hintapernelio~asunnot_2010$neliöt), lwd=2, col='red')
+```
+
+Kuvaajasta voidaan havaita trendiviivaan nojaten, että suuremmissa asunnoissa hinta neliötä kohden on keskimäärin pienempi kuin pienessä asunnossa. Aineistossa kuitenkin näkyy merkittävää hajontaa, joten tarkastellaan vielä neliöhintoja huonemäärän perusteella.
+
+```{r hinta/neliö huonemäärittäin, echo=FALSE}
+kaNeliot = c()
+kaHinta = c()
+for (maara in huonemaarat){
+  kaNeliot = c(kaNeliot, mean(subset(asunnot_2010, asunnot_2010$huoneet==maara)$neliöt))
+  kaHinta = c(kaHinta, mean(subset(asunnot_2010, asunnot_2010$huoneet==maara)$velatonhinta))
+}
+
+barplot(kaHinta/kaNeliot, ylim=c(2000, 2600), xpd=FALSE,
+        main="Keskimääräinen hinta/neliömetri huonemäärittäin.",
+        ylab = "Hinta / Neliö", names.arg=c("Yksiö","Kaksio","Kolmio", "4.Huoneinen"))
+```
+
+Kuten aiemmin jo todettiin tosin, yksiöt tuppaavat olemaanpienempiä kuin kaksiot jne. Joten tässä huomataan jälleen, että pienessä asunnossa neliöhinta on kova. Mielenkiintoinen havainto on kuitenkin nelihuoneisten asuntojen tekemä poikkeus tähän trendiin. Voidaan spekuloida, että asunnon hinnassa merkittävä tekijä on siihen liittyvä tekniikka, kuten kylpyhuoneen ja keittiön vaatimat putkitukset. Nämä vaatimukset pysyvät samoina asunnon koosta riippumatta kunne asuntoon halutaan lisätä uusia teknisiä tiloja. Tämä voi hyvin olla tilanne nelihuoneisten asuntojen kohdalla, joissa saattaa jo olla useampi kylpyhuone. Tämän kokoiset asunnot ovat myös tässä aineistossa vähissä, joten niiden kauppahinta todennäköisesti heijastaa harvinaisuutta.
+
+## Hissi
+
+```{r hinta w/ & w/o hissi, echo=FALSE}
+hission = subset(asunnot_2010, asunnot_2010$hissi=="on")
+hissiei = subset(asunnot_2010, asunnot_2010$hissi=="ei")
+
+hinnatpernelio = c(mean(hission$velatonhinta/hission$neliöt), mean(hissiei$velatonhinta/hissiei$neliöt))
+
+```
+
+Yllättäen hissillä ei aineiston pohjalta ole merkittävää vaikutusta asunnon neliöhintaan. Keskimäärin  hissillisen asunnon neliöhinta on `r round(hinnatpernelio[1])`€ ja hissittömän `r round(hinnatpernelio[2])`€. Yllättäen tässä hissitön asunto on lievästi arvokkaampi kuin hissillinen. Yksi mahdollinen selitys on, että aineistossa on asuntoja jotka eivät ole kerrostaloissa, ja ovat tämän takia hieman kalliimpia. Valitettavasti aineisto ei tarjoa keinoa erotella kerrostaloasuntoja muun tyyppisistä asunnoista, joten emme voi tähän nojaten todeta kerrostaloasunnon olevan arvokkaampi tai vähemmän arvokas riippuen siitä, että onko rakennuksessa hissiä.
+
+# References
